@@ -249,8 +249,46 @@ void clampedExpVector(float* values, int* exponents, float* output, int N) {
   // Your solution should work for any value of
   // N and VECTOR_WIDTH, not just when VECTOR_WIDTH divides N
   //
-  for (int i = 0;; i += VECTOR_WIDTH) {
-    
+  __cs149_vec_float x;
+  __cs149_vec_int y;
+  __cs149_vec_int zero = _cs149_vset_int(0);
+  __cs149_vec_int one = _cs149_vset_int(1);
+  __cs149_mask maskAll;
+  for (int i = 0; i < N; i += VECTOR_WIDTH) {
+    if (i + VECTOR_WIDTH > N) {
+      maskAll = _cs149_init_ones(N - i);
+    }
+    else {
+      maskAll = _cs149_init_ones();
+    }
+
+    _cs149_vload_float(x, values + i, maskAll);
+    _cs149_vload_int(y, exponents + i, maskAll);
+
+    __cs149_mask maskIsZero;
+    __cs149_vec_float result = _cs149_vset_float(1.0);
+    _cs149_veq_int(maskIsZero, y, zero, maskAll);
+    // _cs149_vset_float(result, 1.0, maskIsZero);
+
+    __cs149_mask maskIsNotZero = _cs149_mask_not(maskIsZero);
+    while (true) {
+      int zeroNum = _cs149_cntbits(maskIsNotZero);
+      if (zeroNum == 0) {
+        break;
+      }
+      _cs149_vmult_float(result, result, x, maskIsNotZero);
+
+      _cs149_vsub_int(y, y, one, maskIsNotZero);
+      _cs149_veq_int(maskIsZero, y, zero, maskAll);
+      maskIsNotZero = _cs149_mask_not(maskIsZero);
+    }
+
+    __cs149_mask maskMax;
+    __cs149_vec_float maxVec = _cs149_vset_float(9.999999f);
+    _cs149_vgt_float(maskMax, result, maxVec, maskAll); // if (result > 9.999999f) {
+    _cs149_vset_float(result, 9.999999f, maskMax);      //   result = 9.999999f;
+
+    _cs149_vstore_float(output + i, result, maskAll);
   }
 }
 
@@ -273,10 +311,20 @@ float arraySumVector(float* values, int N) {
   // CS149 STUDENTS TODO: Implement your vectorized version of arraySumSerial here
   //
   
-  for (int i=0; i<N; i+=VECTOR_WIDTH) {
+  __cs149_vec_float sum = _cs149_vset_float(0);
 
+  __cs149_mask maskAll = _cs149_init_ones();
+  for (int i=0; i<N; i+=VECTOR_WIDTH) {
+    __cs149_vec_float a;
+    _cs149_vload_float(a, values + i, maskAll);
+    _cs149_vadd_float(sum, sum, a, maskAll);
   }
 
-  return 0.0;
+  float ans = 0;
+  _cs149_vstore_float(values, sum, maskAll);
+  for (int i = 0; i < VECTOR_WIDTH; i ++) {
+    ans += values[i];
+  }
+  return ans;
 }
 
